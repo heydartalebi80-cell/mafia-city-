@@ -177,7 +177,7 @@ export function resolveNight(game: GameState) {
 
   checkWinner(game);
 
-  if (game.phase !== "finished") {
+  if (game.winner === null) {
     game.phase = "day";
   }
 
@@ -234,7 +234,7 @@ export function resolveDayVote(game: GameState) {
   game.votes = {};
   checkWinner(game);
 
-  if (game.phase !== "finished") {
+  if (game.winner === null) {
     game.phase = "night";
     game.round++;
   }
