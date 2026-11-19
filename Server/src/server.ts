@@ -1,161 +1,125 @@
 
+import express from "express";
 import { createServer } from "http";
-import { randomUUID, randomInt } from "crypto";
-import { WebSocket, WebSocketServer } from "ws";
+import { Server } from "socket.io";
 
-const PORT = Number(process.env.PORT || 3000);
+const app = express();
+const httpServer = createServer(app);
 
-type Player = {
+const io = new Server(httpServer, {
+  cors: { origin: "*" }
+});
+
+const PORT = Number(process.env.PORT) || 3000;
+const MAX_PLAYERS = 12;
+
+interface Player {
   id: string;
   name: string;
-  socket: WebSocket;
-};
+  alive: boolean;
+}
 
-type Room = {
-  code: string;
-  capacity: 6 | 8 | 10;
+interface GameRoom {
   players: Player[];
-};
-
-const rooms = new Map<string, Room>();
-
-const httpServer = createServer();
-const wss = new WebSocketServer({ server: httpServer });
-
-function send(socket: WebSocket, data: unknown) {
-  if (socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify(data));
-  }
+  started: boolean;
 }
 
-function broadcast(room: Room, data: unknown) {
-  for (const player of room.players) {
-    send(player.socket, data);
-  }
-}
+const rooms = new Map<string, GameRoom>();
 
-function createRoom(
-  socket: WebSocket,
-  name: string,
-  capacity: 6 | 8 | 10
-) {
-  let code = "";
+app.get("/", (_req, res) => {
+  res.send("Mafia City Server is running!");
+});
 
-  do {
-    code = randomInt(100000, 1000000).toString();
-  } while (rooms.has(code));
+io.on("connection", (socket) => {
+  console.log("Player connected:", socket.id);
 
-  const room: Room = {
-    code,
-    capacity,
-    players: []
-  };
+  socket.on("create-room", (roomId: string, playerName: string) => {
+    if (typeof roomId !== "string" || typeof playerName !== "string") return;
+    if (!roomId.trim() || !playerName.trim()) return;
 
-  rooms.set(code, room);
-  joinRoom(socket, name, code);
-}
+    if (rooms.has(roomId)) {
+      socket.emit("error-message", "Room already exists");
+      return;
+    }
 
-function joinRoom(
-  socket: WebSocket,
-  name: string,
-  code: string
-) {
-  const room = rooms.get(code);
+    rooms.set(roomId, {
+      players: [{ id: socket.id, name: playerName.trim().slice(0, 20), alive: true }],
+      started: false
+    });
 
-  if (!room) {
-    return send(socket, { type: "error", message: "Room not found" });
-  }
+    socket.join(roomId);
+    socket.data.roomId = roomId;
 
-  if (room.players.length >= room.capacity) {
-    return send(socket, { type: "error", message: "Room is full" });
-  }
-
-  if (room.players.some(p => p.socket === socket)) {
-    return send(socket, { type: "error", message: "Already in a room" });
-  }
-
-  const player: Player = {
-    id: randomUUID(),
-    name: name.slice(0, 20),
-    socket
-  };
-
-  room.players.push(player);
-
-  send(socket, {
-    type: "joined",
-    roomCode: room.code,
-    playerId: player.id,
-    capacity: room.capacity
+    socket.emit("room-created", { roomId });
+    io.to(roomId).emit("player-list", rooms.get(roomId)!.players);
   });
 
-  broadcast(room, {
-    type: "room_update",
-    roomCode: room.code,
-    players: room.players.map(p => ({
-      id: p.id,
-      name: p.name
-    })),
-    capacity: room.capacity
-  });
-}
+  socket.on("join-room", (roomId: string, playerName: string) => {
+    if (typeof roomId !== "string" || typeof playerName !== "string") return;
 
-function removePlayer(socket: WebSocket) {
-  for (const [code, room] of rooms) {
-    room.players = room.players.filter(p => p.socket !== socket);
+    const room = rooms.get(roomId);
+    if (!room || room.started || room.players.length >= MAX_PLAYERS) {
+      socket.emit("error-message", "Room unavailable");
+      return;
+    }
+
+    if (!playerName.trim()) return;
+
+    room.players.push({
+      id: socket.id,
+      name: playerName.trim().slice(0, 20),
+      alive: true
+    });
+
+    socket.join(roomId);
+    socket.data.roomId = roomId;
+
+    io.to(roomId).emit("player-list", room.players);
+  });
+
+  socket.on("chat-message", (message: string) => {
+    const roomId = socket.data.roomId;
+    if (typeof message !== "string" || !roomId) return;
+
+    const room = rooms.get(roomId);
+    if (!room || !room.players.some(p => p.id === socket.id)) return;
+
+    io.to(roomId).emit("chat-message", {
+      playerId: socket.id,
+      message: message.slice(0, 300)
+    });
+  });
+
+  socket.on("start-game", () => {
+    const roomId = socket.data.roomId;
+    if (!roomId) return;
+
+    const room = rooms.get(roomId);
+    if (!room || room.players.length !== MAX_PLAYERS || room.started) return;
+
+    room.started = true;
+    io.to(roomId).emit("game-started");
+  });
+
+  socket.on("disconnect", () => {
+    const roomId = socket.data.roomId;
+    if (!roomId) return;
+
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    room.players = room.players.filter(p => p.id !== socket.id);
 
     if (room.players.length === 0) {
-      rooms.delete(code);
+      rooms.delete(roomId);
     } else {
-      broadcast(room, {
-        type: "room_update",
-        roomCode: code,
-        players: room.players.map(p => ({
-          id: p.id,
-          name: p.name
-        })),
-        capacity: room.capacity
-      });
+      io.to(roomId).emit("player-list", room.players);
     }
-  }
-}
 
-wss.on("connection", socket => {
-  send(socket, { type: "connected", message: "Welcome to Mafia City" });
-
-  socket.on("message", raw => {
-    try {
-      const data = JSON.parse(raw.toString());
-
-      if (typeof data.name !== "string" ||
-          data.name.trim().length === 0) {
-        return send(socket, { type: "error", message: "Invalid name" });
-      }
-
-      if (data.type === "create_room") {
-        if (![6, 8, 10].includes(data.capacity)) {
-          return send(socket, { type: "error", message: "Invalid room size" });
-        }
-
-        createRoom(socket, data.name.trim(), data.capacity);
-      } else if (data.type === "join_room") {
-        if (typeof data.roomCode !== "string" ||
-            !/^\d{6}$/.test(data.roomCode)) {
-          return send(socket, { type: "error", message: "Invalid room code" });
-        }
-
-        joinRoom(socket, data.name.trim(), data.roomCode);
-      } else {
-        send(socket, { type: "error", message: "Unknown command" });
-      }
-    } catch {
-      send(socket, { type: "error", message: "Invalid message" });
-    }
+    console.log("Player disconnected:", socket.id);
   });
-
-  socket.on("close", () => removePlayer(socket));
 });
 
 httpServer.listen(PORT, () => {
-  console.log(\`Mafia City server running on port \${PORT}\`);
+  console.log(`Mafia City server running on port ${PORT}`);
 });
