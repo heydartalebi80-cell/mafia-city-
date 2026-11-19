@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#090909">
+<title>MAFIA CITY</title>
+<style>
+:root{color-scheme:dark;--gold:#d8b45c;--gold2:#f3d88c;--bg:#090909;--panel:#151515;--muted:#aaa}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 35%,#30230e 0,#12100b 34%,#080808 72%);color:#f7f0df;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;display:grid;place-items:center;padding:22px}
+.shell{width:min(100%,470px);border:1px solid #6c5528;border-radius:24px;padding:24px;background:linear-gradient(160deg,#191610ed,#090909f5);box-shadow:0 24px 90px #000b,inset 0 0 35px #c79a2a0c;position:relative;overflow:hidden}
+.top{display:flex;justify-content:space-between;align-items:center}.lang,.setting{border:1px solid #705a2e;background:#17140d;color:var(--gold2);border-radius:12px;padding:9px 13px;font-weight:700;cursor:pointer}
+.brand{text-align:center;padding:35px 0 28px}.crest{width:76px;height:76px;border:1px solid var(--gold);border-radius:50%;display:grid;place-items:center;margin:0 auto 17px;color:var(--gold2);font-size:35px;box-shadow:0 0 30px #d8b45c24}
+h1{margin:0;color:var(--gold2);font-family:Georgia,serif;font-size:clamp(34px,10vw,48px);letter-spacing:3px;text-shadow:0 3px 22px #d8b45c35}
+.tag{margin:10px 0 0;color:#b99a5a;letter-spacing:3px;font-size:11px}.intro{color:#c6bdab;line-height:1.9;text-align:center;margin:0 auto 25px;max-width:330px}
+.actions{display:grid;gap:12px}.primary,.secondary{padding:15px;border-radius:13px;font-size:15px;font-weight:800;cursor:pointer}.primary{border:1px solid #f0d78e;background:linear-gradient(100deg,#a77a27,#f0d78e,#b58b3e);color:#171108}.secondary{border:1px solid #6d562b;background:#17140f;color:#e8d39b}
+.note{margin:23px 0 0;text-align:center;color:#82765e;font-size:11px;line-height:1.8}.divider{height:1px;background:linear-gradient(90deg,transparent,#725b2d,transparent);margin:20px 0}
+.status{display:flex;justify-content:center;gap:8px;color:#9c906f;font-size:11px}.dot{width:7px;height:7px;border-radius:50%;background:#c49b45;align-self:center}.toast{min-height:22px;text-align:center;color:var(--gold2);font-size:12px;margin-top:12px}
+[dir=ltr] .tag{letter-spacing:3px}
+</style>
+</head>
+<body>
+<main class="shell">
+ <div class="top"><button class="setting" id="settings">⚙ <span data-i18n="settings">تنظیمات</span></button><button class="lang" id="language">EN</button></div>
+ <section class="brand"><div class="crest" aria-hidden="true">♛</div><h1>MAFIA CITY</h1><p class="tag">RULE THE CITY</p></section>
+ <p class="intro" data-i18n="intro">به شهری خوش آمدی که قدرت، هوش و اتحاد سرنوشت را تعیین می‌کنند.</p>
+ <div class="actions"><button class="primary" id="login" data-i18n="login">ورود به بازی</button><button class="secondary" id="guest" data-i18n="guest">ورود مهمان</button></div>
+ <div class="toast" id="toast" role="status" aria-live="polite"></div><div class="divider"></div>
+ <div class="status"><span class="dot"></span><span data-i18n="prototype">نسخه اولیه رابط کاربری</span></div>
+ <p class="note" data-i18n="foot">این نسخه نمایشی صفحه شروع است؛ ورود آنلاین و اتاق‌های چندنفره در مراحل بعد اضافه می‌شوند.</p>
+</main>
+<script>
+const words={fa:{settings:"تنظیمات",intro:"به شهری خوش آمدی که قدرت، هوش و اتحاد سرنوشت را تعیین می‌کنند.",login:"ورود به بازی",guest:"ورود مهمان",prototype:"نسخه اولیه رابط کاربری",foot:"این نسخه نمایشی صفحه شروع است؛ ورود آنلاین و اتاق‌های چندنفره در مراحل بعد اضافه می‌شوند.",soon:"این قابلیت در مرحله بعد فعال می‌شود."},en:{settings:"Settings",intro:"Welcome to a city where power, strategy, and loyalty decide your fate.",login:"LOG IN",guest:"PLAY AS GUEST",prototype:"EARLY UI PROTOTYPE",foot:"This is the opening-screen prototype. Online accounts and multiplayer rooms will be added in later stages.",soon:"This feature will be enabled in a later stage."}};
+let lang="fa";function applyLanguage(){document.documentElement.lang=lang;document.documentElement.dir=lang==="fa"?"rtl":"ltr";document.querySelectorAll("[data-i18n]").forEach(el=>el.textContent=words[lang][el.dataset.i18n]);document.getElementById("language").textContent=lang==="fa"?"EN":"فا";document.getElementById("toast").textContent=""}
+document.getElementById("language").addEventListener("click",()=>{lang=lang==="fa"?"en":"fa";applyLanguage()});["settings","login","guest"].forEach(id=>document.getElementById(id).addEventListener("click",()=>{document.getElementById("toast").textContent=words[lang].soon}));applyLanguage();
+</script>
+</body>
+</html>
